@@ -102,9 +102,11 @@ int getaddrinfo(const char *restrict host, const char *restrict serv, const stru
 			.ai_next = &out[k+1].ai };
 		k++;
 	}
-	if ( nais >= 1 ) {
-		out[nais-1].ai.ai_next = 0;
+	if ( nais < 1 ) {
+		free( out );
+		return EAI_NODATA;
 	}
+	out[nais-1].ai.ai_next = 0;
 	*res = &out->ai;
 	return 0;
 }
