@@ -35,9 +35,7 @@ int getaddrinfo(const char *restrict host, const char *restrict serv, const stru
 			return EAI_BADFLAGS;
 
 		if (flags & AI_ADDRCONFIG) {
-			if (0 != __lookup_addrconfig(&addrconfig)) {
-				return EAI_SYSTEM;
-			}
+			__lookup_addrconfig(&addrconfig);
 		}
 
 		switch (family) {
@@ -88,7 +86,7 @@ int getaddrinfo(const char *restrict host, const char *restrict serv, const stru
 			out[k].sa.sin6.sin6_port = htons(ports[j].port);
 			out[k].sa.sin6.sin6_scope_id = addrs[i].scopeid;
 			memcpy(&out[k].sa.sin6.sin6_addr, &addrs[i].addr, 16);
-			break;			
+			break;
 		}
 		out[k].ai = (struct addrinfo){
 			.ai_family = addrs[i].family,

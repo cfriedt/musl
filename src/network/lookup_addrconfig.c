@@ -1,39 +1,40 @@
 #include "lookup.h"
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <sys/types.h>
-#include <ifaddrs.h>
-#include <netdb.h>
-#define _BSD_SOURCE
-#include <net/if.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
-int __lookup_addrconfig( struct addrconfig *cfg ) {
+void __lookup_addrconfig( struct addrconfig *cfg ) {
 	int r;
-	struct ifaddrs *ifap;
-	struct ifaddrs *it;
+	int fd;
 
-	r = getifaddrs(&ifap);
-	if ( 0 != r ) {
-		return EAI_SYSTEM;
+	struct sockaddr_in sai = {
+		.sin_family = AF_INET,
+		.sin_port = htons( 42 ),
+		.sin_addr.s_addr = INADDR_LOOPBACK,
+	};
+	cfg->af_inet = false;
+	r = socket( AF_INET, SOCK_DGRAM, 0 );
+	if ( -1 != r ) {
+		fd = r;
+		r = connect( fd, (struct sockaddr *) & sai, sizeof( sai ) );
+		cfg->af_inet = 0 == r;
+		close( fd );
 	}
 
-	for(
-		cfg->af_inet = false, cfg->af_inet6 = false, it = ifap;
-		!( NULL == it || ( cfg->af_inet && cfg->af_inet6 ) );
-		it = it->ifa_next
-	) {
-		switch(it->ifa_addr->sa_family) {
-		case AF_INET:
-			cfg->af_inet = true;
-			break;
-		case AF_INET6:
-			cfg->af_inet6 = true;
-			break;
-		default:
-			continue;
-		}
+	struct sockaddr_in6 sai6 = {
+		.sin6_family = AF_INET6,
+		.sin6_port = htons( 42 ),
+		.sin6_addr = IN6ADDR_LOOPBACK_INIT,
+	};
+	cfg->af_inet6 = false;
+	r = socket( AF_INET6, SOCK_DGRAM, 0 );
+	if ( -1 != r ) {
+		fd = r;
+		r = connect( fd, (struct sockaddr *) & sai6, sizeof( sai6 ) );
+		cfg->af_inet6 = 0 == r;
+		close( fd );
 	}
-
-	freeifaddrs( ifap );
-
-	return 0;
 }
