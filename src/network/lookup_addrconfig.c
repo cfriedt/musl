@@ -21,13 +21,6 @@ int __lookup_addrconfig( struct addrconfig *cfg ) {
 		!( NULL == it || ( cfg->af_inet && cfg->af_inet6 ) );
 		it = it->ifa_next
 	) {
-#ifdef BE_LIKE_GLIBC
-		if (IFF_LOOPBACK & it->ifa_flags) {
-			// http://man7.org/linux/man-pages/man3/getaddrinfo.3.html
-			// loopback devices do not count as having configured addresses
-			continue;
-		}
-#endif
 		switch(it->ifa_addr->sa_family) {
 		case AF_INET:
 			cfg->af_inet = true;
