@@ -23,6 +23,7 @@ int getaddrinfo(const char *restrict host, const char *restrict serv, const stru
 			struct sockaddr_in6 sin6;
 		} sa;
 	} *out;
+	struct addrconfig addrconfig;
 
 	if (!host && !serv) return EAI_NONAME;
 
@@ -36,6 +37,10 @@ int getaddrinfo(const char *restrict host, const char *restrict serv, const stru
 			AI_V4MAPPED | AI_ALL | AI_ADDRCONFIG | AI_NUMERICSERV;
 		if ((flags & mask) != flags)
 			return EAI_BADFLAGS;
+
+		if (flags & AI_ADDRCONFIG) {
+			__lookup_addrconfig(&addrconfig);
+		}
 
 		switch (family) {
 		case AF_INET:
@@ -100,7 +105,28 @@ int getaddrinfo(const char *restrict host, const char *restrict serv, const stru
 		outcanon = 0;
 	}
 
-	for (k=i=0; i<naddrs; i++) for (j=0; j<nservs; j++, k++) {
+	for (k=i=0; i<naddrs; i++) for (j=0; j<nservs; j++) {
+		switch (addrs[i].family) {
+		case AF_INET:
+			if ((flags & AI_ADDRCONFIG) && !addrconfig.af_inet) {
+				nais--;
+				continue;
+			}
+			out[k].sa.sin.sin_family = AF_INET;
+			out[k].sa.sin.sin_port = htons(ports[j].port);
+			memcpy(&out[k].sa.sin.sin_addr, &addrs[i].addr, 4);
+			break;
+		case AF_INET6:
+			if ((flags & AI_ADDRCONFIG ) && !addrconfig.af_inet6) {
+				nais--;
+				continue;
+			}
+			out[k].sa.sin6.sin6_family = AF_INET6;
+			out[k].sa.sin6.sin6_port = htons(ports[j].port);
+			out[k].sa.sin6.sin6_scope_id = addrs[i].scopeid;
+			memcpy(&out[k].sa.sin6.sin6_addr, &addrs[i].addr, 16);
+			break;
+		}
 		out[k].ai = (struct addrinfo){
 			.ai_family = addrs[i].family,
 			.ai_socktype = ports[j].socktype,
@@ -111,19 +137,11 @@ int getaddrinfo(const char *restrict host, const char *restrict serv, const stru
 			.ai_addr = (void *)&out[k].sa,
 			.ai_canonname = outcanon,
 			.ai_next = &out[k+1].ai };
-		switch (addrs[i].family) {
-		case AF_INET:
-			out[k].sa.sin.sin_family = AF_INET;
-			out[k].sa.sin.sin_port = htons(ports[j].port);
-			memcpy(&out[k].sa.sin.sin_addr, &addrs[i].addr, 4);
-			break;
-		case AF_INET6:
-			out[k].sa.sin6.sin6_family = AF_INET6;
-			out[k].sa.sin6.sin6_port = htons(ports[j].port);
-			out[k].sa.sin6.sin6_scope_id = addrs[i].scopeid;
-			memcpy(&out[k].sa.sin6.sin6_addr, &addrs[i].addr, 16);
-			break;			
-		}
+		k++;
+	}
+	if ( nais < 1 ) {
+		free( out );
+		return EAI_NODATA;
 	}
 	out[nais-1].ai.ai_next = 0;
 	*res = &out->ai;
